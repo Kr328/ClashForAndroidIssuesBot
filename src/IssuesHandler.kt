@@ -30,7 +30,7 @@ object IssuesHandler {
         Please use Issue Template to create issue
         请务必使用 Issue Template 创建 Issue
         
-        [Issue Template](https://github.com/Kr328/ClashForAndroid/issues)
+        [Issue Template](https://github.com/Kr328/ClashForAndroid/issues/new/choose)
     """.trimIndent()
 
     private val pendingCloseIssues = Channel<String>(Channel.UNLIMITED)
