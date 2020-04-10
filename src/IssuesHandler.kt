@@ -11,9 +11,7 @@ import io.ktor.client.request.post
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.request.ApplicationRequest
-import io.ktor.request.contentType
-import io.ktor.request.receiveText
+import io.ktor.request.*
 import io.ktor.response.respond
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -32,7 +30,7 @@ object IssuesHandler {
         Please use Issue Template to create issue
         请务必使用 Issue Template 创建 Issue
         
-        https://github.com/Kr328/ClashForAndroid/issues -> New Issue
+        [Issue Template](https://github.com/Kr328/ClashForAndroid/issues)
     """.trimIndent()
 
     private val pendingCloseIssues = Channel<String>(Channel.UNLIMITED)
@@ -84,27 +82,25 @@ object IssuesHandler {
         if (call.request.contentType() != ContentType.Application.Json)
             return call.respond(HttpStatusCode.NotAcceptable, "Only json accepted")
 
-        val content = call.receiveText()
+        val content = call.receive<ByteArray>()
         if (!validContent(call.request, content))
             return call.respond(HttpStatusCode.BadRequest, "Invalid secret")
 
         val payload = withContext(Dispatchers.Default) {
             Json(JsonConfiguration.Stable.copy(ignoreUnknownKeys = true))
-                .parse(IssuePayload.serializer(), content)
+                .parse(IssuePayload.serializer(), String(content))
         }
 
-//        if (payload.authorAssociation == "OWNER")
-//            return call.respond(HttpStatusCode.NoContent, "")
-
         when (payload.action) {
-            "opened", "reopened" -> {
-                if (!REGEX_ISSUE_TITLE.matches(payload.issue.title))
-                    pendingLabelIssues.send(payload.issue.url)
-            }
-            "labeled" -> {
-                if (payload.issue.state == "open" && !payload.issue.locked) {
-                    if (payload.issue.labels.any { it.name == "invalid" })
+            "opened", "reopened", "labeled" -> {
+                if (payload.issue.labels.any { it.name == "invalid" }) {
+                    if (payload.issue.state == "open" && !payload.issue.locked) {
                         pendingCloseIssues.send(payload.issue.url)
+                    }
+                }
+                else {
+                    if (!REGEX_ISSUE_TITLE.matches(payload.issue.title))
+                        pendingLabelIssues.send(payload.issue.url)
                 }
             }
         }
@@ -112,14 +108,14 @@ object IssuesHandler {
         call.respond(HttpStatusCode.NoContent, "")
     }
 
-    private suspend fun validContent(request: ApplicationRequest, content: String): Boolean {
+    private suspend fun validContent(request: ApplicationRequest, content: ByteArray): Boolean {
         return withContext(Dispatchers.Default) {
             val key = SecretKeySpec(WEBHOOK_SECRET.toByteArray(), "HmacSHA1")
             val mac = Mac.getInstance("HmacSHA1")
 
             mac.init(key)
 
-            val digest = String(Hex().encode(mac.doFinal(content.toByteArray())))
+            val digest = String(Hex().encode(mac.doFinal(content)))
 
             "sha1=$digest".trim() == request.headers["X-HUB-SIGNATURE"]?.trim()
         }
