@@ -25,7 +25,7 @@ import javax.crypto.spec.SecretKeySpec
 object IssuesHandler {
     private val WEBHOOK_SECRET = System.getenv("WEBHOOK_SECRET") ?: throw Error("webhook secret not set")
     private val API_SECRET = System.getenv("API_SECRET") ?: throw Error("app id not set")
-    private val REGEX_ISSUE_TITLE = Regex("\\[(BUG|Feature Request)]\\s*\\S+")
+    private val REGEX_ISSUE_TITLE = Regex("\\[(BUG|Feature Request)].+")
     private val INVALID_ISSUE_COMMENT = """
         Please use Issue Template to create issue
         请务必使用 Issue Template 创建 Issue
@@ -99,7 +99,7 @@ object IssuesHandler {
                     }
                 }
                 else {
-                    if (!REGEX_ISSUE_TITLE.matches(payload.issue.title))
+                    if (!REGEX_ISSUE_TITLE.matches(payload.issue.title.trim()))
                         pendingLabelIssues.send(payload.issue.url)
                 }
             }
