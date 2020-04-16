@@ -1,17 +1,16 @@
 package com.github.kr328.bot
 
-import io.ktor.application.*
-import io.ktor.response.*
-import io.ktor.routing.*
-import io.ktor.http.*
-import io.ktor.features.*
-import java.lang.Exception
+import io.ktor.application.Application
+import io.ktor.application.call
+import io.ktor.http.HttpStatusCode
+import io.ktor.response.respond
+import io.ktor.routing.post
+import io.ktor.routing.routing
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
 @Suppress("unused") // Referenced in application.conf
-@kotlin.jvm.JvmOverloads
-fun Application.module(testing: Boolean = false) {
+fun Application.module() {
     routing {
         post("/") {
             when (call.request.headers["X-GITHUB-EVENT"]?.toLowerCase()) {

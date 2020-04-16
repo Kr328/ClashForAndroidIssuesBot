@@ -1,21 +1,23 @@
 package com.github.kr328.bot
 
-import com.github.kr328.bot.model.AddLabel
-import com.github.kr328.bot.model.CloseIssue
-import com.github.kr328.bot.model.CreateComment
+import com.github.kr328.bot.action.Action
+import com.github.kr328.bot.action.CloseAction
+import com.github.kr328.bot.action.CommentAction
+import com.github.kr328.bot.action.LabelAction
 import io.ktor.application.ApplicationCall
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.apache.Apache
-import io.ktor.client.request.patch
-import io.ktor.client.request.post
+import io.ktor.client.features.defaultRequest
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.Url
 import io.ktor.http.contentType
-import io.ktor.request.*
+import io.ktor.request.ApplicationRequest
+import io.ktor.request.contentType
+import io.ktor.request.receive
 import io.ktor.response.respond
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonConfiguration
 import model.IssuePayload
@@ -28,73 +30,40 @@ object IssuesHandler {
     private val WEBHOOK_SECRET = System.getenv("WEBHOOK_SECRET") ?: throw Error("webhook secret not set")
     private val API_SECRET = System.getenv("API_SECRET") ?: throw Error("app id not set")
     private val REGEX_ISSUE_TITLE = Regex("\\[(BUG|Feature Request)].+")
-    private val INVALID_ISSUE_COMMENT = """
+    private val COMMENT_INVALID_ISSUE = """
         Please use Issue Template to create issue
         请务必使用 Issue Template 创建 Issue
         
         [Issue Template](https://github.com/Kr328/ClashForAndroid/issues/new/choose)
     """.trimIndent()
-    private val OUT_OF_DATE_ISSUE_COMMENT = """
+    private val COMMENT_OUT_OF_DATE_ISSUE = """
         This issue has no updated feedback and may have been fixed in latest release
         此 Issue 没有后续且可能已经在最新版本中得到修复
     """.trimIndent()
+    private val COMMENT_RESOLVED_ISSUE = """
+        This issue has been resolved
+        此问题已得到解决
+    """.trimIndent()
 
-    private val pendingCloseInvalidIssues = Channel<String>(Channel.UNLIMITED)
-    private val pendingCloseOutOfDateIssues = Channel<String>(Channel.UNLIMITED)
-    private val pendingLabelIssues = Channel<String>(Channel.UNLIMITED)
+    private val pendingActions = Channel<Pair<String, Action>>(Channel.UNLIMITED)
 
     init {
         val client = HttpClient(Apache) {
             expectSuccess = false
+
+            this.defaultRequest {
+                headers["Authorization"] = "Bearer $API_SECRET"
+
+                contentType(ContentType.Application.Json)
+            }
         }
-        val json = Json(JsonConfiguration.Stable)
 
         GlobalScope.launch {
             while (isActive) {
-                select<Unit> {
-                    pendingLabelIssues.onReceive {
-                        client.post<String>("$it/labels") {
-                            headers["Authorization"] = "Bearer $API_SECRET"
+                val action = pendingActions.receive()
 
-                            contentType(ContentType.Application.Json)
-
-                            body = json.stringify(AddLabel.serializer(), AddLabel(listOf("invalid")))
-                        }
-                    }
-                    pendingCloseInvalidIssues.onReceive {
-                        client.post<String>("$it/comments") {
-                            headers["Authorization"] = "Bearer $API_SECRET"
-
-                            contentType(ContentType.Application.Json)
-
-                            body = json.stringify(CreateComment.serializer(), CreateComment(INVALID_ISSUE_COMMENT))
-                        }
-
-                        client.patch<String>(it) {
-                            headers["Authorization"] = "Bearer $API_SECRET"
-
-                            contentType(ContentType.Application.Json)
-
-                            body = json.stringify(CloseIssue.serializer(), CloseIssue())
-                        }
-                    }
-                    pendingCloseOutOfDateIssues.onReceive {
-                        client.post<String>("$it/comments") {
-                            headers["Authorization"] = "Bearer $API_SECRET"
-
-                            contentType(ContentType.Application.Json)
-
-                            body = json.stringify(CreateComment.serializer(), CreateComment(OUT_OF_DATE_ISSUE_COMMENT))
-                        }
-
-                        client.patch<String>(it) {
-                            headers["Authorization"] = "Bearer $API_SECRET"
-
-                            contentType(ContentType.Application.Json)
-
-                            body = json.stringify(CloseIssue.serializer(), CloseIssue())
-                        }
-                    }
+                launch {
+                    action.second.action(client, Url(action.first))
                 }
             }
         }
@@ -114,23 +83,39 @@ object IssuesHandler {
         }
 
         when (payload.action) {
-            "opened", "reopened", "labeled" -> {
+            "opened" -> {
+                if (!REGEX_ISSUE_TITLE.matches(payload.issue.title.trim()))
+                    pendingActions.send(payload.issue.url to LabelAction("invalid"))
+            }
+            "reopened" -> {
+                if (!REGEX_ISSUE_TITLE.matches(payload.issue.title.trim())) {
+                    if (payload.issue.labels.any { it.name == "invalid"}) {
+                        pendingActions.send(payload.issue.url to CommentAction(COMMENT_INVALID_ISSUE))
+                        pendingActions.send(payload.issue.url to CloseAction())
+                    }
+                    else {
+                        pendingActions.send(payload.issue.url to LabelAction("invalid"))
+                    }
+                }
+            }
+            "labeled" -> {
+                val url = payload.issue.url
                 val labels = payload.issue.labels.map(Label::name).toSet()
+                if (payload.issue.state != "open" || payload.issue.locked)
+                    return
 
                 when {
                     "invalid" in labels -> {
-                        if (payload.issue.state == "open" && !payload.issue.locked) {
-                            pendingCloseInvalidIssues.send(payload.issue.url)
-                        }
+                        pendingActions.send(url to CommentAction(COMMENT_INVALID_ISSUE))
+                        pendingActions.send(url to CloseAction())
                     }
                     "out-of-date" in labels -> {
-                        if (payload.issue.state == "open" && !payload.issue.locked) {
-                            pendingCloseOutOfDateIssues.send(payload.issue.url)
-                        }
+                        pendingActions.send(url to CommentAction(COMMENT_OUT_OF_DATE_ISSUE))
+                        pendingActions.send(url to CloseAction())
                     }
-                    else -> {
-                        if (!REGEX_ISSUE_TITLE.matches(payload.issue.title.trim()))
-                            pendingLabelIssues.send(payload.issue.url)
+                    "resolved" in labels -> {
+                        pendingActions.send(url to CommentAction(COMMENT_RESOLVED_ISSUE))
+                        pendingActions.send(url to CloseAction())
                     }
                 }
             }
