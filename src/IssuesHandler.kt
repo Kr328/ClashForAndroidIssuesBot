@@ -18,6 +18,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonConfiguration
 import model.IssuePayload
+import model.Label
 import org.apache.commons.codec.binary.Hex
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -93,7 +94,9 @@ object IssuesHandler {
 
         when (payload.action) {
             "opened", "reopened", "labeled" -> {
-                if (payload.issue.labels.any { it.name == "invalid" }) {
+                val labels = payload.issue.labels.map(Label::name).toSet()
+
+                if ("invalid" in labels || "out-of-date" in labels) {
                     if (payload.issue.state == "open" && !payload.issue.locked) {
                         pendingCloseIssues.send(payload.issue.url)
                     }
