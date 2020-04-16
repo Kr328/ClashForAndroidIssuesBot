@@ -15,6 +15,7 @@ import io.ktor.request.*
 import io.ktor.response.respond
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonConfiguration
 import model.IssuePayload
@@ -33,8 +34,13 @@ object IssuesHandler {
         
         [Issue Template](https://github.com/Kr328/ClashForAndroid/issues/new/choose)
     """.trimIndent()
+    private val OUT_OF_DATE_ISSUE_COMMENT = """
+        This issue has no updated feedback and may have been fixed in latest release
+        此 Issue 没有后续且可能已经在最新版本中得到修复
+    """.trimIndent()
 
-    private val pendingCloseIssues = Channel<String>(Channel.UNLIMITED)
+    private val pendingCloseInvalidIssues = Channel<String>(Channel.UNLIMITED)
+    private val pendingCloseOutOfDateIssues = Channel<String>(Channel.UNLIMITED)
     private val pendingLabelIssues = Channel<String>(Channel.UNLIMITED)
 
     init {
@@ -45,35 +51,50 @@ object IssuesHandler {
 
         GlobalScope.launch {
             while (isActive) {
-                val issueUrl = pendingLabelIssues.receive()
+                select<Unit> {
+                    pendingCloseInvalidIssues.onReceive {
+                        client.post<String>("$it/labels") {
+                            headers["Authorization"] = "Bearer $API_SECRET"
 
-                client.post<String>("$issueUrl/labels") {
-                    headers["Authorization"] = "Bearer $API_SECRET"
+                            contentType(ContentType.Application.Json)
 
-                    contentType(ContentType.Application.Json)
+                            body = json.stringify(AddLabel.serializer(), AddLabel(listOf("invalid")))
+                        }
+                    }
+                    pendingCloseInvalidIssues.onReceive {
+                        client.post<String>("$it/comments") {
+                            headers["Authorization"] = "Bearer $API_SECRET"
 
-                    body = json.stringify(AddLabel.serializer(), AddLabel(listOf("invalid")))
-                }
-            }
-        }
-        GlobalScope.launch {
-            while (isActive) {
-                val issueUrl = pendingCloseIssues.receive()
+                            contentType(ContentType.Application.Json)
 
-                client.post<String>("$issueUrl/comments") {
-                    headers["Authorization"] = "Bearer $API_SECRET"
+                            body = json.stringify(CreateComment.serializer(), CreateComment(INVALID_ISSUE_COMMENT))
+                        }
 
-                    contentType(ContentType.Application.Json)
+                        client.patch<String>(it) {
+                            headers["Authorization"] = "Bearer $API_SECRET"
 
-                    body = json.stringify(CreateComment.serializer(), CreateComment(INVALID_ISSUE_COMMENT))
-                }
+                            contentType(ContentType.Application.Json)
 
-                client.patch<String>(issueUrl) {
-                    headers["Authorization"] = "Bearer $API_SECRET"
+                            body = json.stringify(CloseIssue.serializer(), CloseIssue())
+                        }
+                    }
+                    pendingCloseOutOfDateIssues.onReceive {
+                        client.post<String>("$it/comments") {
+                            headers["Authorization"] = "Bearer $API_SECRET"
 
-                    contentType(ContentType.Application.Json)
+                            contentType(ContentType.Application.Json)
 
-                    body = json.stringify(CloseIssue.serializer(), CloseIssue())
+                            body = json.stringify(CreateComment.serializer(), CreateComment(OUT_OF_DATE_ISSUE_COMMENT))
+                        }
+
+                        client.patch<String>(it) {
+                            headers["Authorization"] = "Bearer $API_SECRET"
+
+                            contentType(ContentType.Application.Json)
+
+                            body = json.stringify(CloseIssue.serializer(), CloseIssue())
+                        }
+                    }
                 }
             }
         }
@@ -96,14 +117,21 @@ object IssuesHandler {
             "opened", "reopened", "labeled" -> {
                 val labels = payload.issue.labels.map(Label::name).toSet()
 
-                if ("invalid" in labels || "out-of-date" in labels) {
-                    if (payload.issue.state == "open" && !payload.issue.locked) {
-                        pendingCloseIssues.send(payload.issue.url)
+                when {
+                    "invalid" in labels -> {
+                        if (payload.issue.state == "open" && !payload.issue.locked) {
+                            pendingCloseInvalidIssues.send(payload.issue.url)
+                        }
                     }
-                }
-                else {
-                    if (!REGEX_ISSUE_TITLE.matches(payload.issue.title.trim()))
-                        pendingLabelIssues.send(payload.issue.url)
+                    "out-of-date" in labels -> {
+                        if (payload.issue.state == "open" && !payload.issue.locked) {
+                            pendingCloseOutOfDateIssues.send(payload.issue.url)
+                        }
+                    }
+                    else -> {
+                        if (!REGEX_ISSUE_TITLE.matches(payload.issue.title.trim()))
+                            pendingLabelIssues.send(payload.issue.url)
+                    }
                 }
             }
         }
