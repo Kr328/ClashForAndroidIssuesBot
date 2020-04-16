@@ -52,7 +52,7 @@ object IssuesHandler {
         GlobalScope.launch {
             while (isActive) {
                 select<Unit> {
-                    pendingCloseInvalidIssues.onReceive {
+                    pendingLabelIssues.onReceive {
                         client.post<String>("$it/labels") {
                             headers["Authorization"] = "Bearer $API_SECRET"
 
