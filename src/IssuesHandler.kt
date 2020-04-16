@@ -29,7 +29,7 @@ import javax.crypto.spec.SecretKeySpec
 object IssuesHandler {
     private val WEBHOOK_SECRET = System.getenv("WEBHOOK_SECRET") ?: throw Error("webhook secret not set")
     private val API_SECRET = System.getenv("API_SECRET") ?: throw Error("app id not set")
-    private val REGEX_ISSUE_TITLE = Regex("\\[(BUG|Feature Request)].+")
+    private val REGEX_ISSUE_TITLE = Regex("\\[(BUG|Feature Request)].*\\S.*")
     private val COMMENT_INVALID_ISSUE = """
         Please use Issue Template to create issue
         请务必使用 Issue Template 创建 Issue
