@@ -99,10 +99,11 @@ object IssuesHandler {
                 }
             }
             "labeled" -> {
-                val url = payload.issue.url
-                val labels = payload.issue.labels.map(Label::name).toSet()
                 if (payload.issue.state != "open" || payload.issue.locked)
                     return
+
+                val url = payload.issue.url
+                val labels = payload.issue.labels.map(Label::name).toSet()
 
                 when {
                     "invalid" in labels -> {
