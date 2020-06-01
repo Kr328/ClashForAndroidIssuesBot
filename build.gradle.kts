@@ -1,13 +1,11 @@
 val ktor_version: String by project
 val kotlin_version: String by project
 val logback_version: String by project
-val java_jwt_version: String by project
-val bcprov: String by project
 
 plugins {
     application
-    kotlin("jvm") version "1.3.70"
-    kotlin("plugin.serialization") version "1.3.70"
+    kotlin("jvm") version "1.3.72"
+    kotlin("plugin.serialization") version "1.3.72"
 }
 
 group = "com.github.kr328.bot"
@@ -32,8 +30,6 @@ dependencies {
     implementation("io.ktor:ktor-client-core:$ktor_version")
     implementation("io.ktor:ktor-client-core-jvm:$ktor_version")
     implementation("io.ktor:ktor-client-apache:$ktor_version")
-    implementation("com.auth0:java-jwt:$java_jwt_version")
-    implementation("org.bouncycastle:bcprov-jdk15on:$bcprov")
     testImplementation("io.ktor:ktor-server-tests:$ktor_version")
 }
 

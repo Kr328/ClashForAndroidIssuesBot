@@ -11,5 +11,6 @@ data class Issue(
     val labels: List<Label>,
     val locked: Boolean,
     val state: String,
+    @SerialName("node_id") val nodeId: String,
     @SerialName("author_association") val authorAssociation: String
 )

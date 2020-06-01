@@ -1,8 +1,23 @@
 package com.github.kr328.bot.action
 
-import io.ktor.client.HttpClient
-import io.ktor.http.Url
+import com.github.kr328.bot.Shared
+import io.ktor.client.request.post
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonConfiguration
 
-interface Action {
-    suspend fun action(client: HttpClient, target: Url)
+abstract class Action<R>(private val serializer: KSerializer<R>) {
+    @Serializable
+    data class Query(val query: String)
+
+    suspend fun action(): R {
+        val result = Shared.HTTP.post<String>("https://api.github.com/graphql") {
+            this.body = Shared.JSON.stringify(Query.serializer(), Query(query()))
+        }
+
+        return Shared.JSON.parse(serializer, result)
+    }
+
+    abstract fun query(): String
 }
