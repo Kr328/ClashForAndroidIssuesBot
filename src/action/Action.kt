@@ -4,8 +4,6 @@ import com.github.kr328.bot.Shared
 import io.ktor.client.request.post
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
 
 abstract class Action<R>(private val serializer: KSerializer<R>) {
     @Serializable

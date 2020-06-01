@@ -11,7 +11,7 @@ class QueryIssues(
     override fun query(): String {
         val labelsString = labels.joinToString(separator = "\",\"", prefix = "[\"", postfix = "\"]")
 
-        return if ( after == null ) {
+        return if (after == null) {
             """
             query {
               user(login: "$user") {

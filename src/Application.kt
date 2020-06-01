@@ -14,7 +14,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import model.IssuePayload
-import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
@@ -50,7 +49,10 @@ fun Application.module() {
                                 IssueCloser.handleLabeled(
                                     payload.issue.nodeId,
                                     payload.label?.name
-                                        ?: return@post call.respond(HttpStatusCode.BadRequest, "Labeled label not found")
+                                        ?: return@post call.respond(
+                                            HttpStatusCode.BadRequest,
+                                            "Labeled label not found"
+                                        )
                                 )
                             }
                         }
