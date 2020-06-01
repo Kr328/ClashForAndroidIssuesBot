@@ -46,14 +46,16 @@ fun Application.module() {
                                 IssueLabeler.handleReopen(payload.issue.nodeId, payload.issue.title)
                             }
                             "labeled" -> {
-                                IssueCloser.handleLabeled(
-                                    payload.issue.nodeId,
-                                    payload.label?.name
-                                        ?: return@post call.respond(
-                                            HttpStatusCode.BadRequest,
-                                            "Labeled label not found"
-                                        )
-                                )
+                                if ( payload.issue.state == "open" ) {
+                                    IssueCloser.handleLabeled(
+                                        payload.issue.nodeId,
+                                        payload.label?.name
+                                            ?: return@post call.respond(
+                                                HttpStatusCode.BadRequest,
+                                                "Labeled label not found"
+                                            )
+                                    )
+                                }
                             }
                         }
 
