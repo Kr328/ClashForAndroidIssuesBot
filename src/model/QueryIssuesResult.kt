@@ -17,7 +17,7 @@ data class QueryIssuesResult(val data: Data) {
     data class Issues(val nodes: List<Issue>, val pageInfo: PageInfo)
 
     @Serializable
-    data class PageInfo(val endCursor: String, val hasNextPage: Boolean)
+    data class PageInfo(val endCursor: String? = null, val hasNextPage: Boolean = false)
 
     @Serializable
     data class Issue(val id: String, val title: String, val createdAt: String)
