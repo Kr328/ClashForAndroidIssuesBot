@@ -1,7 +1,7 @@
 package com.github.kr328.bot.action
 
 import com.github.kr328.bot.Shared
-import io.ktor.client.request.post
+import io.ktor.client.request.*
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 

@@ -1,17 +1,11 @@
 package com.github.kr328.bot
 
-import io.ktor.application.Application
-import io.ktor.application.call
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.request.contentType
-import io.ktor.request.receive
-import io.ktor.response.respond
-import io.ktor.routing.post
-import io.ktor.routing.routing
-import io.ktor.util.Identity.decode
+import io.ktor.application.*
+import io.ktor.http.*
+import io.ktor.request.*
+import io.ktor.response.*
+import io.ktor.routing.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import model.IssuePayload
@@ -47,7 +41,7 @@ fun Application.module() {
                                 IssueLabeler.handleReopen(payload.issue.nodeId, payload.issue.title)
                             }
                             "labeled" -> {
-                                if ( payload.issue.state == "open" ) {
+                                if (payload.issue.state == "open") {
                                     IssueCloser.handleLabeled(
                                         payload.issue.nodeId,
                                         payload.label?.name

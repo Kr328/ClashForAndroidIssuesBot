@@ -1,6 +1,6 @@
 package com.github.kr328.bot
 
-import io.ktor.request.ApplicationRequest
+import io.ktor.request.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.commons.codec.binary.Hex

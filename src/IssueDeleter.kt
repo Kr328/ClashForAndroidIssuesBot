@@ -30,10 +30,10 @@ object IssueDeleter {
 
                     while (hasNext) {
                         val r = QueryIssues(
-                                Constants.REPOSITORY_OWNER,
-                                Constants.REPOSITORY_NAME,
-                                listOf("invalid"),
-                                endCursor
+                            Constants.REPOSITORY_OWNER,
+                            Constants.REPOSITORY_NAME,
+                            listOf("invalid"),
+                            endCursor
                         ).action()
 
                         val i = r.data.user.repository.issues
@@ -46,8 +46,8 @@ object IssueDeleter {
 
                     issues.filter {
                         Duration.between(
-                                Instant.now(),
-                                Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(it.createdAt))
+                            Instant.now(),
+                            Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(it.createdAt))
                         ).abs().toDays() >= 5
                     }.map {
                         logger.info("Delete ${it.title}")
