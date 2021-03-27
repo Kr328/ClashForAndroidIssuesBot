@@ -6,12 +6,13 @@ import io.ktor.client.features.defaultRequest
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
 
 object Shared {
     private val API_SECRET = System.getenv("API_SECRET") ?: throw Error("app id not set")
 
-    val JSON = Json(JsonConfiguration.Stable.copy(ignoreUnknownKeys = true))
+    val JSON = Json {
+        ignoreUnknownKeys = true
+    }
     val HTTP = HttpClient(Apache) {
         this.defaultRequest {
             headers["Authorization"] = "Bearer $API_SECRET"

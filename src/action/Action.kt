@@ -11,10 +11,10 @@ abstract class Action<R>(private val serializer: KSerializer<R>) {
 
     suspend fun action(): R {
         val result = Shared.HTTP.post<String>("https://api.github.com/graphql") {
-            this.body = Shared.JSON.stringify(Query.serializer(), Query(query()))
+            this.body = Shared.JSON.encodeToString(Query.serializer(), Query(query()))
         }
 
-        return Shared.JSON.parse(serializer, result)
+        return Shared.JSON.decodeFromString(serializer, result)
     }
 
     abstract fun query(): String

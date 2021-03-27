@@ -9,6 +9,7 @@ import io.ktor.request.receive
 import io.ktor.response.respond
 import io.ktor.routing.post
 import io.ktor.routing.routing
+import io.ktor.util.Identity.decode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -35,7 +36,7 @@ fun Application.module() {
                             return@post call.respond(HttpStatusCode.BadRequest, "Invalid secret")
 
                         val payload = withContext(Dispatchers.Default) {
-                            Shared.JSON.parse(IssuePayload.serializer(), String(content))
+                            Shared.JSON.decodeFromString(IssuePayload.serializer(), String(content))
                         }
 
                         when (payload.action) {
@@ -66,7 +67,7 @@ fun Application.module() {
                         call.respond(HttpStatusCode.BadRequest, "process failure")
                     }
                 }
-                "integration_installation", "installation", "ping" -> {
+                "ping" -> {
                     call.respond(HttpStatusCode.NoContent, "")
                 }
                 else -> call.respond(HttpStatusCode.NotFound, "")
@@ -74,7 +75,7 @@ fun Application.module() {
         }
     }
 
-    launch(context = SupervisorJob()) {
+    launch {
         IssueDeleter.exec()
     }
 }
